@@ -372,21 +372,35 @@ def process_session_data(log_file, smartcare_file):
         else:
             st.markdown(f'<div class="status-box status-error">Date not found in filename: {aws_filename}</div>', unsafe_allow_html=True)
         
-        # Process AWS
-        raw_aws = pd.read_fwf(log_file, header=None)
+        # --- FIX: ROBUST LOG FILE READING ---
+        try:
+            # Try UTF-8 first
+            raw_aws = pd.read_fwf(log_file, header=None, encoding='utf-8')
+        except UnicodeDecodeError:
+            # Fallback to Latin-1 if UTF-8 fails (Common for server logs)
+            log_file.seek(0)
+            raw_aws = pd.read_fwf(log_file, header=None, encoding='latin1')
+        
         raw_aws.columns = [f"col{i+1}" for i in range(raw_aws.shape[1])]
         raw_aws["session_id"] = raw_aws.apply(extract_session_id_row, axis=1)
         aws_ids = raw_aws['session_id'].dropna().astype(str).str.strip()
         set_aws = set(aws_ids.unique())
         
-        # Process Smartcare
-        raw_smartcare = pd.read_csv(smartcare_file)
+        # --- FIX: ROBUST CSV READING FOR SMARTCARE ---
+        try:
+            raw_smartcare = pd.read_csv(smartcare_file, encoding='utf-8')
+        except UnicodeDecodeError:
+            smartcare_file.seek(0)
+            raw_smartcare = pd.read_csv(smartcare_file, encoding='latin1')
+
         if 'Session ID' not in raw_smartcare.columns:
             st.markdown('<div class="status-box status-error">Missing "Session ID" column in CSV.</div>', unsafe_allow_html=True)
             return None, None, None, None
         
         # Filter by Date if possible
         if target_date and 'Date' in raw_smartcare.columns:
+            # Clean date column before parsing
+            raw_smartcare['Date'] = raw_smartcare['Date'].astype(str).str.strip()
             raw_smartcare['temp_date_obj'] = pd.to_datetime(raw_smartcare['Date'], format='%d-%b-%y', errors='coerce')
             raw_smartcare = raw_smartcare[raw_smartcare['temp_date_obj'].dt.date == target_date]
             
