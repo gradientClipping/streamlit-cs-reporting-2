@@ -4,3 +4,4 @@ numpy
 python-dateutil
 openpyxl
 lxml
+html5lib
