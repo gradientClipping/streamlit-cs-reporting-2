@@ -5,3 +5,4 @@ python-dateutil
 openpyxl
 lxml
 html5lib
+beautifulsoup4
